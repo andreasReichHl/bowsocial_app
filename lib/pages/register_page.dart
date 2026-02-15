@@ -1,34 +1,33 @@
-import 'package:bowsocial_app/api/api_service.dart';
 import 'package:bowsocial_app/components/app_buttons.dart';
 import 'package:bowsocial_app/components/app_links.dart';
 import 'package:bowsocial_app/components/app_text_field.dart';
 import 'package:bowsocial_app/components/auth_header.dart';
-import 'package:bowsocial_app/pages/dashboard_page.dart';
-import 'package:bowsocial_app/pages/forgot_password_page.dart';
-import 'package:bowsocial_app/pages/register_page.dart';
 import 'package:flutter/material.dart';
 
-class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+class RegisterPage extends StatefulWidget {
+  const RegisterPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _RegisterPageState extends State<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
 
   final _emailController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  bool _isLoading = false;
   bool _obscure = true;
   bool _submitted = false;
+
   bool _emailHasError = false;
+  bool _usernameHasError = false;
   bool _passwordHasError = false;
 
-  late final theme = Theme.of(context);
-  late final schema = theme.colorScheme;
+  bool _shouldValidate(String value) {
+    return _submitted || value.isNotEmpty;
+  }
 
   bool _isEmailValid(String email) {
     final pattern = RegExp(
@@ -37,82 +36,44 @@ class _LoginPageState extends State<LoginPage> {
     return email.isNotEmpty && pattern.hasMatch(email);
   }
 
-  bool _isPasswordValid(String password) {
-    final pattern = RegExp(".*[<>\"'%;)(&+].*");
-    return password.isNotEmpty && !pattern.hasMatch(password);
+  bool _isUsernameValid(String username) {
+    final usernamePattern = RegExp(
+      r'^(?=.{3,30}$)(?![_.-])(?!.*[_.-]{2})(?!.*\s{2})[a-zA-Z0-9._-]+(\s[a-zA-Z0-9._-]+)?(?<![_.-])$',
+    );
+    final notOnlyNumbers = RegExp(r'.*[a-zA-Z].*');
+    return username.isNotEmpty &&
+        usernamePattern.hasMatch(username) &&
+        notOnlyNumbers.hasMatch(username);
   }
 
-  bool _shouldValidate(String value) {
-    return _submitted || value.isNotEmpty;
+  bool _isPasswordValid(String password) {
+    final passwordPattern = RegExp(
+      r'^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-={}\[\]:,.?]).{8,}$',
+    );
+    final dangerousPattern = RegExp(".*[<>\"'%;)(&+].*");
+    if (dangerousPattern.hasMatch(password)) {
+      return false;
+    }
+    return passwordPattern.hasMatch(password);
   }
 
   @override
   void dispose() {
     _emailController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  Future<void> _login() async {
-    setState(() {
-      _submitted = true;
-      final email = _emailController.text.trim();
-      final password = _passwordController.text;
-      _emailHasError = !_isEmailValid(email);
-      _passwordHasError = !_isPasswordValid(password);
-    });
-
-    if (_emailHasError || _passwordHasError) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      final email = _emailController.text.trim();
-      final password = _passwordController.text;
-
-      final api = ApiService();
-      final token = await api.login(email, password);
-
-      if (token == null || token.isEmpty) {
-        throw Exception('Backend hat keinen Token geliefert');
-      }
-
-      await TokenStorage.saveToken(token);
-
-      if (!mounted) return;
-
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const DashboardPage()),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      final message = e.toString().contains('AUTH_INVALID')
-          ? 'Email oder Passwort falsch!'
-          : 'Login fehlgeschlagen';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Center(
-            child: Text(
-              message,
-              style: TextStyle(color: schema.primary),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-
+    final theme = Theme.of(context);
+    final schema = theme.colorScheme;
 
     return Scaffold(
       body: Column(
         children: [
-          const AuthHeader(title: 'Bowsocial'),
+          const AuthHeader(title: 'Registrieren'),
           Expanded(
             child: SafeArea(
               top: false,
@@ -123,7 +84,7 @@ class _LoginPageState extends State<LoginPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const SizedBox(height: 25),
+                      const SizedBox(height: 32),
                       AppTextField(
                         controller: _emailController,
                         label: 'Email',
@@ -142,12 +103,32 @@ class _LoginPageState extends State<LoginPage> {
                         showErrorIcon: true,
                         errorMessage: 'Bitte gueltige Email eingeben',
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 24),
+                      AppTextField(
+                        controller: _usernameController,
+                        label: 'Benutzername',
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.username],
+                        onChanged: (value) {
+                          final username = value.trim();
+                          final shouldValidate = _shouldValidate(username);
+                          setState(() {
+                            _usernameHasError =
+                                shouldValidate && !_isUsernameValid(username);
+                          });
+                        },
+                        hasError: _usernameHasError,
+                        showErrorIcon: true,
+                        errorMessage:
+                            'Regeln: 3-30 Zeichen, Buchstaben/Zahlen/._-, optional ein Leerzeichen, nicht nur Zahlen, kein Start/Ende mit ._- und keine doppelten ._-',
+                      ),
+                      const SizedBox(height: 24),
                       AppTextField(
                         controller: _passwordController,
                         label: 'Passwort',
-                        textInputAction: TextInputAction.done,
-                        autofillHints: const [AutofillHints.password],
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.newPassword],
+                        obscureText: _obscure,
                         onChanged: (value) {
                           final password = value;
                           final shouldValidate = _shouldValidate(password);
@@ -156,52 +137,49 @@ class _LoginPageState extends State<LoginPage> {
                                 shouldValidate && !_isPasswordValid(password);
                           });
                         },
-                        obscureText: _obscure,
                         hasError: _passwordHasError,
                         showErrorIcon: true,
                         showPasswordToggle: true,
-                        errorMessage: 'Ungueltige Zeichen: <>\"\'%;)(&+',
+                        errorMessage:
+                            'Passwortregeln: min. 8 Zeichen, 1 Grossbuchstabe, 1 Zahl, 1 Sonderzeichen, keine <>\"\'%;)(&+',
                         onToggleObscure: () {
                           setState(() => _obscure = !_obscure);
                         },
                       ),
-                      const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: AppLinkText(
-                          text: 'Passwort vergessen',
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const ForgotPasswordPage(),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
                       const SizedBox(height: 24),
                       AppPrimaryButton(
-                        label: 'Login',
-                        isLoading: _isLoading,
-                        onPressed: _login,
+                        label: 'Registrieren',
+                        onPressed: () {
+                          setState(() {
+                            _submitted = true;
+                            final email = _emailController.text.trim();
+                            final username = _usernameController.text.trim();
+                            final password = _passwordController.text;
+                            _emailHasError = !_isEmailValid(email);
+                            _usernameHasError = !_isUsernameValid(username);
+                            _passwordHasError = !_isPasswordValid(password);
+                          });
+
+                          if (!(_emailHasError ||
+                              _usernameHasError ||
+                              _passwordHasError)) {
+                            // TODO: Registrierung ausfuehren
+                          }
+                        },
                       ),
                       const SizedBox(height: 16),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Ich habe noch kein Konto?',
+                            'Ich habe ein Konto?',
                             style: TextStyle(color: schema.secondary),
                           ),
                           const SizedBox(width: 6),
                           AppLinkText(
-                            text: 'Registrieren',
+                            text: 'Log in',
                             onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const RegisterPage(),
-                                ),
-                              );
+                              Navigator.of(context).pop();
                             },
                           ),
                         ],

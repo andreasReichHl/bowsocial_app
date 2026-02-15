@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-import 'pages/login_page.dart';
+import 'pages/auth_gate.dart';
 import 'theme/app_theme.dart';
 
-void main() async{
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: '.env');
   runApp(const BowsocialApp());
 }
 
@@ -25,7 +27,7 @@ class BowsocialApp extends StatelessWidget {
       darkTheme: AppTheme.darkTheme,
 
       // 🚪 Startseite
-      home: const LoginPage(),
+      home: const AuthGate(),
     );
   }
 }

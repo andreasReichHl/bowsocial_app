@@ -61,6 +61,18 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: lib/assets/fonts/Inter-VariableFont_opsz,wght.ttf
+
+    - family: Manrope
+      fonts:
+        - asset: lib/assets/fonts/Manrope-VariableFont_wght.ttf
+
+  assets:
+    - .env
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
@@ -91,4 +103,3 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
-
