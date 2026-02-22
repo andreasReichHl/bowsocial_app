@@ -12,11 +12,16 @@ class AuthGate extends StatelessWidget {
       return false;
     }
     final api = ApiService();
-    final isValid = await api.verifyToken(token);
-    if (!isValid) {
+    try {
+      final isValid = await api.verifyToken(token);
+      if (!isValid) {
+        await TokenStorage.clearToken();
+      }
+      return isValid;
+    } catch (_) {
       await TokenStorage.clearToken();
+      return false;
     }
-    return isValid;
   }
 
   @override

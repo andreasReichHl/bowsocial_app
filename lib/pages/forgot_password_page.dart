@@ -9,7 +9,7 @@ class ForgotPasswordPage extends StatelessWidget {
       appBar: AppBar(title: const Text('Passwort vergessen')),
       body: const SafeArea(
         child: Center(
-          child: Text('Hier kommt die Passwort-zuruecksetzen-Seite hin.'),
+          child: Text('Hier kommt die Passwort-zurücksetzen-Seite hin.'),
         ),
       ),
     );

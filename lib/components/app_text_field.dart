@@ -13,6 +13,9 @@ class AppTextField extends StatelessWidget {
   final bool showErrorIcon;
   final bool showPasswordToggle;
   final VoidCallback? onToggleObscure;
+  final bool readOnly;
+  final VoidCallback? onTap;
+  final EdgeInsets? contentPadding;
 
   const AppTextField({
     super.key,
@@ -28,6 +31,9 @@ class AppTextField extends StatelessWidget {
     this.showErrorIcon = false,
     this.showPasswordToggle = false,
     this.onToggleObscure,
+    this.readOnly = false,
+    this.onTap,
+    this.contentPadding,
   });
 
   @override
@@ -82,6 +88,8 @@ class AppTextField extends StatelessWidget {
       textInputAction: textInputAction,
       autofillHints: autofillHints,
       obscureText: obscureText,
+      readOnly: readOnly,
+      onTap: onTap,
       onChanged: onChanged,
       style: TextStyle(color: schema.secondary),
       decoration: InputDecoration(
@@ -91,10 +99,11 @@ class AppTextField extends StatelessWidget {
         fillColor: theme.scaffoldBackgroundColor,
         labelStyle: TextStyle(color: schema.secondary),
         floatingLabelStyle: TextStyle(color: schema.secondary),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 18,
-          vertical: 16,
-        ),
+        contentPadding: contentPadding ??
+            const EdgeInsets.symmetric(
+              horizontal: 18,
+              vertical: 16,
+            ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(28),
           borderSide: BorderSide(color: borderColor),

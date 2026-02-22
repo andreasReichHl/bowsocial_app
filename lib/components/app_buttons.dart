@@ -20,7 +20,7 @@ class AppPrimaryButton extends StatelessWidget {
       onPressed: isLoading ? null : onPressed,
       style: FilledButton.styleFrom(
         backgroundColor: schema.surface,
-        foregroundColor: schema.primary,
+        foregroundColor: schema.onPrimary,
         padding: const EdgeInsets.symmetric(vertical: 16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(28),

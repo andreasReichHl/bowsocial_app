@@ -101,7 +101,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         },
                         hasError: _emailHasError,
                         showErrorIcon: true,
-                        errorMessage: 'Bitte gueltige Email eingeben',
+                        errorMessage: 'Bitte gültige Email eingeben',
                       ),
                       const SizedBox(height: 24),
                       AppTextField(
@@ -141,7 +141,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         showErrorIcon: true,
                         showPasswordToggle: true,
                         errorMessage:
-                            'Passwortregeln: min. 8 Zeichen, 1 Grossbuchstabe, 1 Zahl, 1 Sonderzeichen, keine <>\"\'%;)(&+',
+                            'Passwortregeln: min. 8 Zeichen, 1 Großbuchstabe, 1 Zahl, 1 Sonderzeichen, keine <>"\'%;)(&+',
                         onToggleObscure: () {
                           setState(() => _obscure = !_obscure);
                         },
@@ -163,7 +163,7 @@ class _RegisterPageState extends State<RegisterPage> {
                           if (!(_emailHasError ||
                               _usernameHasError ||
                               _passwordHasError)) {
-                            // TODO: Registrierung ausfuehren
+                            // TODO: Registrierung ausführen
                           }
                         },
                       ),

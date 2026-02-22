@@ -1,6 +1,7 @@
 import 'package:bowsocial_app/api/api_service.dart';
 import 'package:bowsocial_app/components/app_buttons.dart';
 import 'package:bowsocial_app/components/app_links.dart';
+import 'package:bowsocial_app/components/app_snackbar.dart';
 import 'package:bowsocial_app/components/app_text_field.dart';
 import 'package:bowsocial_app/components/auth_header.dart';
 import 'package:bowsocial_app/pages/dashboard_page.dart';
@@ -89,17 +90,7 @@ class _LoginPageState extends State<LoginPage> {
       final message = e.toString().contains('AUTH_INVALID')
           ? 'Email oder Passwort falsch!'
           : 'Login fehlgeschlagen';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Center(
-            child: Text(
-              message,
-              style: TextStyle(color: schema.primary),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      );
+      AppSnackbar.show(context, message);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -140,7 +131,7 @@ class _LoginPageState extends State<LoginPage> {
                         },
                         hasError: _emailHasError,
                         showErrorIcon: true,
-                        errorMessage: 'Bitte gueltige Email eingeben',
+                        errorMessage: 'Bitte gültige Email eingeben',
                       ),
                       const SizedBox(height: 32),
                       AppTextField(
@@ -160,7 +151,7 @@ class _LoginPageState extends State<LoginPage> {
                         hasError: _passwordHasError,
                         showErrorIcon: true,
                         showPasswordToggle: true,
-                        errorMessage: 'Ungueltige Zeichen: <>\"\'%;)(&+',
+                        errorMessage: 'Ungültige Zeichen: <>"\'%;)(&+',
                         onToggleObscure: () {
                           setState(() => _obscure = !_obscure);
                         },
