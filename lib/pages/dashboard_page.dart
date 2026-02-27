@@ -105,10 +105,9 @@ class _DashboardPageState extends State<DashboardPage> {
                       _tournamentPageKey.currentState?.openCreateSheet();
                     },
                     icon: Icon(
-                      Symbols.add_circle,
+                      Icons.add_circle_rounded,
                       size: 30,
                       color: navAccent,
-                      weight: 300,
                     ),
                   )
                 : null,

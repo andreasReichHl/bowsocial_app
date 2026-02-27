@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bowsocial_app/api/api_service.dart';
 import 'package:bowsocial_app/components/app_buttons.dart';
 import 'package:bowsocial_app/components/app_links.dart';
@@ -87,9 +89,11 @@ class _LoginPageState extends State<LoginPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      final message = e.toString().contains('AUTH_INVALID')
-          ? 'Email oder Passwort falsch!'
-          : 'Login fehlgeschlagen';
+      final message = e is TimeoutException
+          ? 'Verbindung fehlgeschlagen. Bitte erneut versuchen.'
+          : e.toString().contains('AUTH_INVALID')
+              ? 'Email oder Passwort falsch!'
+              : 'Login fehlgeschlagen';
       AppSnackbar.show(context, message);
     } finally {
       if (mounted) setState(() => _isLoading = false);

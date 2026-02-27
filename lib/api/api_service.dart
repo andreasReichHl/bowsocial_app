@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
@@ -47,13 +48,15 @@ class ApiService {
   Future<String?> login(final String username, final String password) async {
     final String basicAuth = 'Basic ${base64Encode(utf8.encode('$username:$password'))}';
 
-    final response = await _client.post(
-      _uri('/api/v1/users/auth/token'),
-      headers: <String, String>{
-        'Authorization': basicAuth,
-        'Content-Type': 'application/json; charset=UTF-8',
-      },
-    );
+    final response = await _client
+        .post(
+          _uri('/api/v1/users/auth/token'),
+          headers: <String, String>{
+            'Authorization': basicAuth,
+            'Content-Type': 'application/json; charset=UTF-8',
+          },
+        )
+        .timeout(const Duration(seconds: 8));
 
     if (response.statusCode == 200) {
       final decoded = jsonDecode(response.body);
@@ -196,6 +199,45 @@ class ApiService {
       return;
     }
     throw Exception('Failed to update tournament status: ${response.body}');
+  }
+
+  Future<void> updateTournamentDetails(
+    String token, {
+    required String tournamentId,
+    required String name,
+    required String description,
+    required String location,
+    required int passesTotal,
+    required int arrowsPerPass,
+    required String targetFace,
+    required String status,
+    required bool hostShoots,
+  }) async {
+    final response = await _client.patch(
+      _uri('/api/v1/tournaments/$tournamentId'),
+      headers: <String, String>{
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode({
+        'name': name,
+        'description': description,
+        'location': location,
+        'passesTotal': passesTotal,
+        'arrowsPerPass': arrowsPerPass,
+        'targetFace': targetFace,
+        'status': status,
+        'hostShoots': hostShoots,
+      }),
+    );
+
+    _ensureNotAuthError(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      _tournamentsCache = null;
+      _tournamentsCacheToken = null;
+      return;
+    }
+    throw Exception('Failed to update tournament details: ${response.body}');
   }
 
   Future<void> addTournamentParticipant(

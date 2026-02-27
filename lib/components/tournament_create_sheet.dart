@@ -13,6 +13,8 @@ class TournamentCreateSheet extends StatelessWidget {
   final ValueChanged<bool> onHostShootsChanged;
   final VoidCallback onPickTargetFace;
   final VoidCallback onCreate;
+  final String title;
+  final String submitLabel;
   final int passesTotal;
   final int arrowsPerPass;
   final VoidCallback onPassesMinus;
@@ -32,6 +34,8 @@ class TournamentCreateSheet extends StatelessWidget {
     required this.onHostShootsChanged,
     required this.onPickTargetFace,
     required this.onCreate,
+    this.title = 'Neues Tournament',
+    this.submitLabel = 'Anlegen',
     required this.passesTotal,
     required this.arrowsPerPass,
     required this.onPassesMinus,
@@ -67,7 +71,7 @@ class TournamentCreateSheet extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    'Neues Tournament',
+                    title,
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
                 ],
@@ -145,7 +149,7 @@ class TournamentCreateSheet extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     AppPrimaryButton(
-                      label: 'Anlegen',
+                      label: submitLabel,
                       onPressed: onCreate,
                     ),
                   ],

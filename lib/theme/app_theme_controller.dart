@@ -4,8 +4,8 @@ class AppThemeController extends InheritedNotifier<ValueNotifier<ThemeMode>> {
   const AppThemeController({
     super.key,
     required ValueNotifier<ThemeMode> notifier,
-    required Widget child,
-  }) : super(notifier: notifier, child: child);
+    required super.child,
+  }) : super(notifier: notifier);
 
   static ValueNotifier<ThemeMode> of(BuildContext context) {
     final controller =

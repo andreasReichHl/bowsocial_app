@@ -39,18 +39,39 @@ class TournamentListItem {
       description: json['description']?.toString() ?? '',
       location: json['location']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
-      publicKey: json['publicKey'] is int
-          ? json['publicKey'] as int
-          : int.tryParse(json['publicKey']?.toString() ?? ''),
-      participants: json['participants'] is int
-          ? json['participants'] as int
-          : int.tryParse(json['participants']?.toString() ?? ''),
-      passesTotal: json['passesTotal'] as int?,
-      arrowsPerPass: json['arrowsPerPass'] as int?,
+      publicKey: _parseInt(json['publicKey']),
+      participants: _parseInt(json['participants']),
+      passesTotal: _parseInt(json['passesTotal']),
+      arrowsPerPass: _parseInt(json['arrowsPerPass']),
       targetFace: json['targetFace']?.toString() ?? '',
-      startTime: DateTime.tryParse(json['startTime']?.toString() ?? ''),
-      endTime: DateTime.tryParse(json['endTime']?.toString() ?? ''),
-      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? ''),
+      startTime: _parseDateTime(json['startTime']),
+      endTime: _parseDateTime(json['endTime']),
+      createdAt: _parseDateTime(json['createdAt']),
     );
+  }
+
+  static int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
+  }
+
+  static DateTime? _parseDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is String) {
+      return DateTime.tryParse(value);
+    }
+    if (value is int) {
+      final ms = value > 1000000000000 ? value : value * 1000;
+      return DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true).toLocal();
+    }
+    if (value is num) {
+      return DateTime.fromMillisecondsSinceEpoch(
+        value.toInt(),
+        isUtc: true,
+      ).toLocal();
+    }
+    return DateTime.tryParse(value.toString());
   }
 }

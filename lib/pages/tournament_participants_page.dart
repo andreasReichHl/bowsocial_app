@@ -5,7 +5,6 @@ import 'package:bowsocial_app/components/app_snackbar.dart';
 import 'package:bowsocial_app/pages/login_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:material_symbols_icons/material_symbols_icons.dart';
 
 class TournamentParticipantsPage extends StatefulWidget {
   const TournamentParticipantsPage({
@@ -221,10 +220,9 @@ class _TournamentParticipantsPageState extends State<TournamentParticipantsPage>
             trailing: IconButton(
               onPressed: _saving ? null : _saveParticipant,
               icon: Icon(
-                Symbols.add_circle,
+                Icons.add_circle_rounded,
                 color: navAccent,
                 size: 30,
-                weight: 300,
               ),
             ),
           ),

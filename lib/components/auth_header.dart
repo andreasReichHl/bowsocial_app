@@ -1,6 +1,5 @@
 import 'package:bowsocial_app/theme/app_colors.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 
 class AuthHeader extends StatelessWidget {
   final String title;
