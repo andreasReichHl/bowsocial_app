@@ -1,4 +1,5 @@
 import 'package:bowsocial_app/models/tournament_list_item.dart';
+import 'package:bowsocial_app/models/target_face_mapper.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 
@@ -17,6 +18,7 @@ class TournamentCard extends StatelessWidget {
     required this.onHorizontalDragEnd,
     required this.onCardTap,
     required this.onDeleteOrStopPressed,
+    required this.canEditTournament,
     required this.onMenuAction,
   });
 
@@ -32,6 +34,7 @@ class TournamentCard extends StatelessWidget {
   final GestureDragEndCallback onHorizontalDragEnd;
   final VoidCallback onCardTap;
   final VoidCallback onDeleteOrStopPressed;
+  final bool canEditTournament;
   final ValueChanged<String> onMenuAction;
 
   @override
@@ -46,6 +49,7 @@ class TournamentCard extends StatelessWidget {
             theme.scaffoldBackgroundColor,
           );
     final metaColorMuted = metaColor.withAlpha(158);
+    final targetFaceLabel = targetFaceLabelForValue(item.targetFace);
     const borderRadius = BorderRadius.all(Radius.circular(8));
 
     return Padding(
@@ -120,120 +124,62 @@ class TournamentCard extends StatelessWidget {
                           const SizedBox(width: 25),
                           Expanded(
                             child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      item.name.isEmpty ? 'Tournament' : item.name,
-                                      style: theme.textTheme.titleMedium?.copyWith(
-                                        color: nameColor,
-                                        fontWeight: FontWeight.w800,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        item.name.isEmpty
+                                            ? 'Tournament'
+                                            : item.name,
+                                        style: theme.textTheme.titleMedium
+                                            ?.copyWith(
+                                              color: nameColor,
+                                              fontWeight: FontWeight.w800,
+                                            ),
                                       ),
                                     ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.only(right: 0),
-                                    child: PopupMenuButton<String>(
-                                      onSelected: onMenuAction,
-                                      color: menuBg,
-                                      shadowColor: Colors.black.withAlpha(36),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                        side: BorderSide(
-                                          color: schema.primary.withAlpha(28),
-                                          width: 0.8,
-                                        ),
-                                      ),
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(
-                                        minWidth: 28,
-                                        minHeight: 28,
-                                      ),
-                                      icon: Icon(
-                                        Symbols.more_vert,
-                                        size: 22,
-                                        weight: 500,
-                                        color: metaColor,
-                                      ),
-                                      itemBuilder: (context) => [
-                                        PopupMenuItem(
-                                          value: 'key_qr',
-                                          child: Row(
-                                            children: [
-                                              Icon(
-                                                Icons.key_rounded,
-                                                size: 18,
-                                                color: schema.primary,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                'QR-Code',
-                                                style:
-                                                    TextStyle(color: schema.secondary),
-                                              ),
-                                            ],
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 0),
+                                      child: PopupMenuButton<String>(
+                                        onSelected: onMenuAction,
+                                        color: menuBg,
+                                        shadowColor: Colors.black.withAlpha(36),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          side: BorderSide(
+                                            color: schema.primary.withAlpha(28),
+                                            width: 0.8,
                                           ),
                                         ),
-                                        PopupMenuDivider(
-                                          height: 1,
-                                          color: schema.primary.withAlpha(24),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(
+                                          minWidth: 28,
+                                          minHeight: 28,
                                         ),
-                                        PopupMenuItem(
-                                          value: 'participants',
-                                          child: Row(
-                                            children: [
-                                              Icon(
-                                                Icons.group_outlined,
-                                                size: 18,
-                                                color: schema.primary,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                'Teilnehmer',
-                                                style:
-                                                    TextStyle(color: schema.secondary),
-                                              ),
-                                            ],
-                                          ),
+                                        icon: Icon(
+                                          Symbols.more_vert,
+                                          size: 22,
+                                          weight: 500,
+                                          color: metaColor,
                                         ),
-                                        PopupMenuDivider(
-                                          height: 1,
-                                          color: schema.primary.withAlpha(32),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'edit',
-                                          child: Row(
-                                            children: [
-                                              Icon(
-                                                Icons.edit_outlined,
-                                                size: 18,
-                                                color: schema.primary,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(
-                                                'Tournament bearbeiten',
-                                                style:
-                                                    TextStyle(color: schema.secondary),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        if (isRunning)
+                                        itemBuilder: (context) => [
                                           PopupMenuItem(
-                                            value: 'stop',
+                                            value: 'key_qr',
                                             child: Row(
                                               children: [
                                                 Icon(
-                                                  Icons.stop_circle_outlined,
+                                                  Icons.key_rounded,
                                                   size: 18,
                                                   color: schema.primary,
                                                 ),
                                                 const SizedBox(width: 8),
                                                 Text(
-                                                  'Stoppen',
+                                                  'QR-Code',
                                                   style: TextStyle(
                                                     color: schema.secondary,
                                                   ),
@@ -241,71 +187,145 @@ class TournamentCard extends StatelessWidget {
                                               ],
                                             ),
                                           ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Row(
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.all(2),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Symbols.target,
-                                          size: 17,
-                                          weight: 400,
-                                          color: metaColorMuted,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          item.targetFace.isEmpty
-                                              ? '-'
-                                              : item.targetFace,
-                                          style: theme.textTheme.bodyMedium
-                                              ?.copyWith(
-                                            color: metaColorMuted,
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: 13,
+                                          PopupMenuDivider(
+                                            height: 1,
+                                            color: schema.primary.withAlpha(24),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 2,
-                                      vertical: 2,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.group_outlined,
-                                          size: 16,
-                                          color: metaColorMuted,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          item.participants?.toString() ?? '0',
-                                          style: theme.textTheme.bodyMedium
-                                              ?.copyWith(
-                                            color: metaColorMuted,
-                                            fontSize: 13,
+                                          PopupMenuItem(
+                                            value: 'participants',
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.group_outlined,
+                                                  size: 18,
+                                                  color: schema.primary,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  'Teilnehmer',
+                                                  style: TextStyle(
+                                                    color: schema.secondary,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                          PopupMenuDivider(
+                                            height: 1,
+                                            color: schema.primary.withAlpha(32),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'edit',
+                                            enabled: canEditTournament,
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.edit_outlined,
+                                                  size: 18,
+                                                  color: canEditTournament
+                                                      ? schema.primary
+                                                      : schema.secondary
+                                                            .withAlpha(110),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  'Tournament bearbeiten',
+                                                  style: TextStyle(
+                                                    color: canEditTournament
+                                                        ? schema.secondary
+                                                        : schema.secondary
+                                                              .withAlpha(110),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          if (isRunning)
+                                            PopupMenuItem(
+                                              value: 'stop',
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.stop_circle_outlined,
+                                                    size: 18,
+                                                    color: schema.primary,
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    'Stoppen',
+                                                    style: TextStyle(
+                                                      color: schema.secondary,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.all(2),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Symbols.target,
+                                            size: 17,
+                                            weight: 400,
+                                            color: metaColorMuted,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            targetFaceLabel.isEmpty
+                                                ? '-'
+                                                : targetFaceLabel,
+                                            style: theme.textTheme.bodyMedium
+                                                ?.copyWith(
+                                                  color: metaColorMuted,
+                                                  fontWeight: FontWeight.w500,
+                                                  fontSize: 13,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 2,
+                                        vertical: 2,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.group_outlined,
+                                            size: 16,
+                                            color: metaColorMuted,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            item.participants?.toString() ??
+                                                '0',
+                                            style: theme.textTheme.bodyMedium
+                                                ?.copyWith(
+                                                  color: metaColorMuted,
+                                                  fontSize: 13,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ],

@@ -1,7 +1,8 @@
 import 'package:bowsocial_app/api/api_service.dart';
-import 'package:bowsocial_app/components/app_page_header.dart';
 import 'package:bowsocial_app/components/app_selection_sheet.dart';
 import 'package:bowsocial_app/components/app_snackbar.dart';
+import 'package:bowsocial_app/models/target_face_mapper.dart';
+import 'package:bowsocial_app/components/tournament_page_header.dart';
 import 'package:bowsocial_app/pages/login_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -25,7 +26,8 @@ class TournamentParticipantsPage extends StatefulWidget {
       _TournamentParticipantsPageState();
 }
 
-class _TournamentParticipantsPageState extends State<TournamentParticipantsPage> {
+class _TournamentParticipantsPageState
+    extends State<TournamentParticipantsPage> {
   static const Color _navIconGreenLight = Color(0xFF6D863E);
   static const Color _navIconGreenDark = Color(0xFF8FB339);
   static const int _maxParticipantsPerDevice = 4;
@@ -40,21 +42,13 @@ class _TournamentParticipantsPageState extends State<TournamentParticipantsPage>
   bool _saving = false;
   String? _targetFace;
 
-  final List<Map<String, String>> _targetFaces = const [
-    {'value': 'WA_40CM', 'label': '40 cm (WA Indoor)'},
-    {'value': 'WA_60CM', 'label': '60 cm (WA)'},
-    {'value': 'WA_80CM', 'label': '80 cm (WA)'},
-    {'value': 'WA_122CM', 'label': '122 cm (WA Outdoor)'},
-    {'value': 'WA_40CM_TRIPLE', 'label': '40 cm Triple Spot (WA Indoor)'},
-    {'value': 'WA_60CM_TRIPLE', 'label': '60 cm Triple Spot (WA Indoor)'},
-    {'value': 'WA_80CM_SPOT', 'label': '80 cm Spot (WA Indoor Compound)'},
-  ];
-
   @override
   void initState() {
     super.initState();
     _targetFace = widget.initialTargetFace;
-    _targetFaceController.text = _targetFaceLabelForValue(widget.initialTargetFace);
+    _targetFaceController.text = targetFaceLabelForValue(
+      widget.initialTargetFace,
+    );
     _loadDeviceAddedParticipants();
   }
 
@@ -70,7 +64,13 @@ class _TournamentParticipantsPageState extends State<TournamentParticipantsPage>
     final token = await TokenStorage.readToken();
     if (token == null || token.isEmpty) {
       if (!mounted) return null;
-      AppSnackbar.show(context, 'Bitte erst einloggen');
+      await TokenStorage.clearToken();
+      if (!mounted) return null;
+      AppSnackbar.show(context, 'Bitte erneut einloggen');
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+        (route) => false,
+      );
       return null;
     }
     return token;
@@ -88,37 +88,23 @@ class _TournamentParticipantsPageState extends State<TournamentParticipantsPage>
   }
 
   void _showTargetFacePicker() {
-    final items = _targetFaces
+    final items = targetFaceOptions
         .map(
-          (item) => SelectionItem<String>(
-            value: item['value'] ?? '',
-            label: item['label'] ?? '',
-          ),
+          (option) =>
+              SelectionItem<String>(value: option.value, label: option.label),
         )
         .toList(growable: false);
     showSelectionBottomSheet<String>(
       context: context,
       items: items,
       onSelected: (value) {
-        final label = _targetFaces
-            .firstWhere(
-              (item) => item['value'] == value,
-              orElse: () => const {'label': '', 'value': ''},
-            )['label']!;
+        final label = targetFaceLabelForValue(value);
         setState(() {
           _targetFace = value;
           _targetFaceController.text = label;
         });
       },
     );
-  }
-
-  String _targetFaceLabelForValue(String value) {
-    final match = _targetFaces.firstWhere(
-      (item) => item['value'] == value,
-      orElse: () => const {'label': '', 'value': ''},
-    );
-    return match['label'] ?? '';
   }
 
   String get _deviceQuotaKey => 'participants_added_${widget.tournamentId}';
@@ -169,8 +155,10 @@ class _TournamentParticipantsPageState extends State<TournamentParticipantsPage>
         targetFace: _targetFace!,
       );
       if (!mounted) return;
-      final updatedDeviceCount =
-          (_deviceAddedParticipants + 1).clamp(0, _maxParticipantsPerDevice);
+      final updatedDeviceCount = (_deviceAddedParticipants + 1).clamp(
+        0,
+        _maxParticipantsPerDevice,
+      );
       await _saveDeviceAddedParticipants(updatedDeviceCount);
       if (!mounted) return;
       setState(() {
@@ -200,8 +188,8 @@ class _TournamentParticipantsPageState extends State<TournamentParticipantsPage>
     final navAccent = theme.brightness == Brightness.light
         ? _navIconGreenLight
         : _navIconGreenDark;
-    final remaining =
-        (_maxParticipantsPerDevice - _deviceAddedParticipants).clamp(0, _maxParticipantsPerDevice);
+    final remaining = (_maxParticipantsPerDevice - _deviceAddedParticipants)
+        .clamp(0, _maxParticipantsPerDevice);
     final currentParticipantsLive =
         widget.currentParticipants + _addedInCurrentSession;
 
@@ -209,21 +197,15 @@ class _TournamentParticipantsPageState extends State<TournamentParticipantsPage>
       backgroundColor: theme.scaffoldBackgroundColor,
       body: Column(
         children: [
-          AppPageHeader(
+          TournamentPageHeader(
             title: 'TEILNEHMER',
-            centerTitle: true,
-            titleColor: navAccent,
             leading: IconButton(
               onPressed: () => Navigator.of(context).pop(),
               icon: Icon(Icons.arrow_back, color: navAccent),
             ),
             trailing: IconButton(
               onPressed: _saving ? null : _saveParticipant,
-              icon: Icon(
-                Icons.add_circle_rounded,
-                color: navAccent,
-                size: 30,
-              ),
+              icon: Icon(Icons.add_circle_rounded, color: navAccent, size: 30),
             ),
           ),
           Expanded(
@@ -299,7 +281,9 @@ class _TournamentParticipantsPageState extends State<TournamentParticipantsPage>
                 ),
                 const SizedBox(height: 24),
                 FilledButton(
-                  onPressed: (_saving || _deviceAddedParticipants >= _maxParticipantsPerDevice)
+                  onPressed:
+                      (_saving ||
+                          _deviceAddedParticipants >= _maxParticipantsPerDevice)
                       ? null
                       : _saveParticipant,
                   style: FilledButton.styleFrom(
@@ -307,7 +291,9 @@ class _TournamentParticipantsPageState extends State<TournamentParticipantsPage>
                     foregroundColor: schema.onPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: Text(_saving ? 'Speichert...' : 'Teilnehmer hinzufügen'),
+                  child: Text(
+                    _saving ? 'Speichert...' : 'Teilnehmer hinzufügen',
+                  ),
                 ),
               ],
             ),

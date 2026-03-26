@@ -8,6 +8,7 @@ class AppPageHeader extends StatelessWidget {
     this.trailing,
     this.centerTitle = false,
     this.titleColor,
+    this.showBottomBorder = true,
   });
 
   final String title;
@@ -15,6 +16,7 @@ class AppPageHeader extends StatelessWidget {
   final Widget? trailing;
   final bool centerTitle;
   final Color? titleColor;
+  final bool showBottomBorder;
 
   @override
   Widget build(BuildContext context) {
@@ -41,12 +43,14 @@ class AppPageHeader extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(16, MediaQuery.paddingOf(context).top + 10, 16, 10),
       decoration: BoxDecoration(
         color: chromeBg,
-        border: Border(
-          bottom: BorderSide(
-            color: schema.secondary.withAlpha(60),
-            width: 0.5,
-          ),
-        ),
+        border: showBottomBorder
+            ? Border(
+                bottom: BorderSide(
+                  color: schema.secondary.withAlpha(60),
+                  width: 0.5,
+                ),
+              )
+            : null,
       ),
       child: centerTitle
           ? Stack(

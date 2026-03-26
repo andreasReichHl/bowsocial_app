@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:bowsocial_app/api/api_service.dart';
 import 'package:bowsocial_app/pages/dashboard_page.dart';
 import 'package:bowsocial_app/pages/login_page.dart';
@@ -28,26 +26,7 @@ class _AuthGateState extends State<AuthGate> {
     if (token == null || token.isEmpty) {
       return false;
     }
-    final api = ApiService();
-    try {
-      final isValid = await api
-          .verifyToken(token)
-          .timeout(const Duration(seconds: 8));
-      if (!isValid) {
-        await TokenStorage.clearToken();
-      }
-      return isValid;
-    } on TimeoutException {
-      _authFailureMessage =
-          'Verbindung fehlgeschlagen. Bitte erneut einloggen.';
-      await TokenStorage.clearToken();
-      return false;
-    } catch (_) {
-      _authFailureMessage =
-          'Verbindung fehlgeschlagen. Bitte erneut einloggen.';
-      await TokenStorage.clearToken();
-      return false;
-    }
+    return true;
   }
 
   @override

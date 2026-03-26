@@ -95,8 +95,81 @@ class ApiService {
       return _tournamentsCache!;
     }
 
+    http.Response response;
+    try {
+      response = await _client
+          .get(
+            _uri('/api/v1/tournaments'),
+            headers: <String, String>{
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      final cached = _fallbackTournamentCache(token);
+      if (cached != null) return cached;
+      rethrow;
+    }
+    _ensureNotAuthError(response);
+    if (response.statusCode == 429) {
+      final cached = _fallbackTournamentCache(token);
+      if (cached != null) return cached;
+      throw Exception('RATE_LIMITED_TOURNAMENTS');
+    }
+    if (response.statusCode == 204 || response.body.trim().isEmpty) {
+      _tournamentsCache = const <Map<String, dynamic>>[];
+      _tournamentsCacheToken = token;
+      return _tournamentsCache!;
+    }
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      final items = _extractTournamentItems(decoded);
+      if (items != null) {
+        _tournamentsCache = items;
+        _tournamentsCacheToken = token;
+        return items;
+      }
+      throw Exception('Unexpected tournaments response shape');
+    }
+    throw Exception('Failed to load tournaments: ${response.body}');
+  }
+
+  List<Map<String, dynamic>>? _fallbackTournamentCache(String token) {
+    if (_tournamentsCache != null && _tournamentsCacheToken == token) {
+      return _tournamentsCache!;
+    }
+    return null;
+  }
+
+  List<Map<String, dynamic>>? _extractTournamentItems(Object? decoded) {
+    if (decoded is List) {
+      return decoded.whereType<Map<String, dynamic>>().toList(growable: false);
+    }
+    if (decoded is Map<String, dynamic>) {
+      const keys = <String>['items', 'content', 'data', 'tournaments', 'results'];
+      for (final key in keys) {
+        final value = decoded[key];
+        if (value is List) {
+          return value.whereType<Map<String, dynamic>>().toList(growable: false);
+        }
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>> getTournamentDetails(
+    String token, {
+    required String tournamentId,
+    String? hostUserId,
+  }) async {
+    final uri = _uri('/api/v1/tournaments/$tournamentId').replace(
+      queryParameters: <String, String>{
+        if (hostUserId != null && hostUserId.trim().isNotEmpty)
+          'hostUserId': hostUserId.trim(),
+      },
+    );
     final response = await _client.get(
-      _uri('/api/v1/tournaments'),
+      uri,
       headers: <String, String>{
         'Authorization': 'Bearer $token',
       },
@@ -104,16 +177,12 @@ class ApiService {
     _ensureNotAuthError(response);
     if (response.statusCode == 200) {
       final decoded = jsonDecode(response.body);
-      if (decoded is List) {
-        final items =
-            decoded.whereType<Map<String, dynamic>>().toList(growable: false);
-        _tournamentsCache = items;
-        _tournamentsCacheToken = token;
-        return items;
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
       }
-      throw Exception('Unexpected tournaments response');
+      throw Exception('Unexpected tournament details response');
     }
-    throw Exception('Failed to load tournaments: ${response.body}');
+    throw Exception('Failed to load tournament details: ${response.body}');
   }
 
   Future<void> createTournament(
@@ -129,7 +198,7 @@ class ApiService {
     required bool hostShoots,
   }) async {
     final response = await _client.post(
-      _uri('/api/v1/tournaments/'),
+      _uri('/api/v1/tournaments'),
       headers: <String, String>{
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json; charset=UTF-8',
@@ -269,6 +338,29 @@ class ApiService {
     throw Exception('Failed to add tournament participant: ${response.body}');
   }
 
+  Future<void> updatePassArrows(
+    String token, {
+    required String passId,
+    required List<String> arrows,
+  }) async {
+    final response = await _client.patch(
+      _uri('/api/v1/passes/$passId'),
+      headers: <String, String>{
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode({
+        'arrows': arrows,
+      }),
+    );
+
+    _ensureNotAuthError(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return;
+    }
+    throw Exception('Failed to update pass arrows: ${response.body}');
+  }
+
   Future<http.Response> postJson(
     String path,
     Map<String, dynamic> body, {
@@ -288,6 +380,7 @@ class ApiService {
 
 class TokenStorage {
   static const _key = 'jwt_token';
+  static const _userIdKey = 'jwt_user_id';
   static final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   static Future<void> saveToken(String token) async {
@@ -300,5 +393,57 @@ class TokenStorage {
 
   static Future<void> clearToken() async {
     await _storage.delete(key: _key);
+    await _storage.delete(key: _userIdKey);
+  }
+
+  static Future<void> saveUserId(String userId) async {
+    await _storage.write(key: _userIdKey, value: userId);
+  }
+
+  static Future<String?> readUserId() async {
+    return _storage.read(key: _userIdKey);
+  }
+
+  static String? extractUserIdFromJwt(String jwt) {
+    final parts = jwt.split('.');
+    if (parts.length != 3) return null;
+
+    final payload = parts[1];
+    final normalized = base64Url.normalize(payload);
+    final decodedBytes = base64Url.decode(normalized);
+    final decoded = utf8.decode(decodedBytes);
+    final payloadJson = jsonDecode(decoded);
+    if (payloadJson is! Map<String, dynamic>) return null;
+
+    const claimCandidates = <String>[
+      'userId',
+      'user_id',
+      'uid',
+      'appUserId',
+      'sub',
+    ];
+
+    for (final key in claimCandidates) {
+      final raw = payloadJson[key]?.toString().trim();
+      if (raw == null || raw.isEmpty) continue;
+      final extracted = _extractUuid(raw) ?? raw;
+      if (extracted.isNotEmpty) return extracted;
+    }
+    return null;
+  }
+
+  static String? extractSubjectFromJwt(String jwt) {
+    return extractUserIdFromJwt(jwt);
+  }
+
+  static String? _extractUuid(String input) {
+    final match = RegExp(
+      r'[0-9a-fA-F]{8}-'
+      r'[0-9a-fA-F]{4}-'
+      r'[1-5][0-9a-fA-F]{3}-'
+      r'[89abAB][0-9a-fA-F]{3}-'
+      r'[0-9a-fA-F]{12}',
+    ).firstMatch(input);
+    return match?.group(0);
   }
 }

@@ -20,6 +20,7 @@ class TournamentPageBody extends StatelessWidget {
     required this.onCardDragEnd,
     required this.onCardTap,
     required this.onDeleteOrStopPressed,
+    required this.canEditTournament,
     required this.onMenuAction,
   });
 
@@ -38,6 +39,7 @@ class TournamentPageBody extends StatelessWidget {
   final void Function(TournamentListItem) onCardDragEnd;
   final void Function(TournamentListItem, double) onCardTap;
   final Future<void> Function(TournamentListItem) onDeleteOrStopPressed;
+  final bool Function(TournamentListItem) canEditTournament;
   final Future<void> Function(TournamentListItem, String) onMenuAction;
 
   @override
@@ -88,11 +90,13 @@ class TournamentPageBody extends StatelessWidget {
       );
     }
 
-    final activeItems = items.where((item) => isActiveTournamentStatus(item.status)).toList();
-    activeItems.sort((a, b) => tournamentGroupDate(b).compareTo(tournamentGroupDate(a)));
+    final activeItems =
+        items.where((item) => isActiveTournamentStatus(item.status)).toList();
+    final visibleItems = activeItems.isNotEmpty ? activeItems : [...items];
+    visibleItems.sort((a, b) => tournamentGroupDate(b).compareTo(tournamentGroupDate(a)));
 
     final groupedItems = <DateTime, List<TournamentListItem>>{};
-    for (final item in activeItems) {
+    for (final item in visibleItems) {
       final date = tournamentGroupDate(item);
       groupedItems.putIfAbsent(date, () => <TournamentListItem>[]).add(item);
     }
@@ -108,7 +112,9 @@ class TournamentPageBody extends StatelessWidget {
             const SizedBox(height: 96),
             Center(
               child: Text(
-                'Keine aktiven Tournament vorhanden',
+                visibleItems.isEmpty
+                    ? 'Keine Tournament vorhanden'
+                    : 'Keine aktiven Tournament vorhanden',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: schema.secondary,
                 ),
@@ -170,6 +176,7 @@ class TournamentPageBody extends StatelessWidget {
                         },
                         onCardTap: () => onCardTap(item, offset),
                         onDeleteOrStopPressed: () => onDeleteOrStopPressed(item),
+                        canEditTournament: canEditTournament(item),
                         onMenuAction: (action) => onMenuAction(item, action),
                       );
                     },
@@ -185,4 +192,3 @@ class TournamentPageBody extends StatelessWidget {
     );
   }
 }
-

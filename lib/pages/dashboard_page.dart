@@ -1,4 +1,5 @@
 import 'package:bowsocial_app/components/app_page_header.dart';
+import 'package:bowsocial_app/components/tournament_page_header.dart';
 import 'package:bowsocial_app/pages/profile_page.dart';
 import 'package:bowsocial_app/pages/tournament_page.dart';
 import 'package:flutter/material.dart';
@@ -18,36 +19,53 @@ class _DashboardPageState extends State<DashboardPage> {
   final GlobalKey<TournamentPageState> _tournamentPageKey =
       GlobalKey<TournamentPageState>();
 
-  final _items = const [
-    BottomNavigationBarItem(
-      icon: Padding(
-        padding: EdgeInsets.only(top: 6),
-        child: Icon(Symbols.history, weight: 200),
+  List<BottomNavigationBarItem> _buildItems() {
+    final items = [
+      (
+        icon: Symbols.history,
+        selectedIcon: Symbols.history,
+        fill: true,
+        label: 'History',
       ),
-      label: 'History',
-    ),
-    BottomNavigationBarItem(
-      icon: Padding(
-        padding: EdgeInsets.only(top: 6),
-        child: Icon(Symbols.bar_chart, weight: 200),
+      (
+        icon: Symbols.bar_chart,
+        selectedIcon: Symbols.bar_chart,
+        fill: true,
+        label: 'Statistik',
       ),
-      label: 'Statistik',
-    ),
-    BottomNavigationBarItem(
-      icon: Padding(
-        padding: EdgeInsets.only(top: 6),
-        child: Icon(Symbols.trophy, weight: 200),
+      (
+        icon: Symbols.trophy,
+        selectedIcon: Symbols.trophy,
+        fill: true,
+        label: 'Tournament',
       ),
-      label: 'Tournament',
-    ),
-    BottomNavigationBarItem(
-      icon: Padding(
-        padding: EdgeInsets.only(top: 6),
-        child: Icon(Symbols.person, weight: 200),
+      (
+        icon: Symbols.person,
+        selectedIcon: Symbols.person,
+        fill: true,
+        label: 'Profil',
       ),
-      label: 'Profil',
-    ),
-  ];
+    ];
+
+    return List<BottomNavigationBarItem>.generate(items.length, (index) {
+      final item = items[index];
+      return BottomNavigationBarItem(
+        icon: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Icon(item.icon, weight: 200, fill: 0),
+        ),
+        activeIcon: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Icon(
+            item.selectedIcon,
+            weight: 650,
+            fill: item.fill ? 1 : 0,
+          ),
+        ),
+        label: item.label,
+      );
+    });
+  }
 
   Widget _buildBody() {
     switch (_currentIndex) {
@@ -95,12 +113,10 @@ class _DashboardPageState extends State<DashboardPage> {
       backgroundColor: theme.scaffoldBackgroundColor,
       body: Column(
         children: [
-          AppPageHeader(
-            title: _currentIndex == 2 ? 'TOURNAMENT' : _headerTitle(),
-            centerTitle: _currentIndex == 2,
-            titleColor: _currentIndex == 2 ? navAccent : null,
-            trailing: _currentIndex == 2
-                ? IconButton(
+          _currentIndex == 2
+              ? TournamentPageHeader(
+                  title: 'Tournament',
+                  trailing: IconButton(
                     onPressed: () {
                       _tournamentPageKey.currentState?.openCreateSheet();
                     },
@@ -109,9 +125,11 @@ class _DashboardPageState extends State<DashboardPage> {
                       size: 30,
                       color: navAccent,
                     ),
-                  )
-                : null,
-          ),
+                  ),
+                )
+              : AppPageHeader(
+                  title: _headerTitle(),
+                ),
           Expanded(child: _buildBody()),
         ],
       ),
@@ -131,13 +149,13 @@ class _DashboardPageState extends State<DashboardPage> {
             selectedItemColor: navAccent,
             unselectedItemColor: navAccent,
             selectedLabelStyle: theme.textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.w400,
+              fontWeight: FontWeight.w700,
             ),
             unselectedLabelStyle: theme.textTheme.labelSmall?.copyWith(
               fontWeight: FontWeight.w400,
             ),
             currentIndex: _currentIndex,
-            items: _items,
+            items: _buildItems(),
             onTap: (index) {
               setState(() => _currentIndex = index);
             },

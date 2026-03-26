@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:bowsocial_app/api/api_service.dart';
+import 'package:bowsocial_app/api/tournament_status_events_service.dart';
 import 'package:bowsocial_app/components/app_selection_sheet.dart';
 import 'package:bowsocial_app/components/app_snackbar.dart';
 import 'package:bowsocial_app/components/tournament_create_sheet.dart';
 import 'package:bowsocial_app/models/tournament_list_item.dart';
+import 'package:bowsocial_app/models/target_face_mapper.dart';
 import 'package:bowsocial_app/pages/tournament_page_body.dart';
 import 'package:bowsocial_app/pages/tournament_page_helpers.dart';
 import 'package:bowsocial_app/pages/login_page.dart';
@@ -33,7 +37,12 @@ class TournamentPageState extends State<TournamentPage> {
   final Map<String, double> _swipeOffsets = {};
   bool _redirectingToLogin = false;
   bool _reloadScheduled = false;
+  bool _refreshInProgress = false;
   String? _suppressNextCardTapItemId;
+  String? _currentUserId;
+  String? _lastTournamentLoadError;
+  StreamSubscription<TournamentStatusChangedEvent>? _statusEventsSub;
+  Timer? _statusRefreshDebounce;
 
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -42,16 +51,6 @@ class TournamentPageState extends State<TournamentPage> {
   int _passesTotal = 6;
   int _arrowsPerPass = 3;
   String? _targetFace;
-
-  final List<Map<String, String>> _targetFaces = const [
-    {'value': 'WA_40CM', 'label': '40 cm (WA Indoor)'},
-    {'value': 'WA_60CM', 'label': '60 cm (WA)'},
-    {'value': 'WA_80CM', 'label': '80 cm (WA)'},
-    {'value': 'WA_122CM', 'label': '122 cm (WA Outdoor)'},
-    {'value': 'WA_40CM_TRIPLE', 'label': '40 cm Triple Spot (WA Indoor)'},
-    {'value': 'WA_60CM_TRIPLE', 'label': '60 cm Triple Spot (WA Indoor)'},
-    {'value': 'WA_80CM_SPOT', 'label': '80 cm Spot (WA Indoor Compound)'},
-  ];
 
   Future<String?> _requireToken({
     bool showMissingTokenSnackbar = true,
@@ -68,9 +67,15 @@ class TournamentPageState extends State<TournamentPage> {
         _loading = false;
       });
     }
+    await TokenStorage.clearToken();
+    if (!mounted) return null;
     if (showMissingTokenSnackbar) {
-      AppSnackbar.show(context, 'Bitte erst einloggen');
+      AppSnackbar.show(context, 'Bitte erneut einloggen');
     }
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+      (route) => false,
+    );
     return null;
   }
 
@@ -88,8 +93,10 @@ class TournamentPageState extends State<TournamentPage> {
     } catch (e) {
       if (await _redirectToLoginIfAuthExpired(e)) return null;
       if (!mounted) return null;
+      final message = _messageForTournamentLoadError(e);
+      _lastTournamentLoadError = message;
       if (errorSnackbarMessage != null) {
-        AppSnackbar.show(context, errorSnackbarMessage);
+        AppSnackbar.show(context, message);
       }
       return null;
     }
@@ -102,11 +109,13 @@ class TournamentPageState extends State<TournamentPage> {
     );
     if (token == null) return;
 
-    final refreshed = await _fetchTournaments(token: token, forceRefresh: true);
+    final refreshed = await _fetchTournaments(token: token, forceRefresh: false);
     if (refreshed == null) {
       if (!mounted) return;
       setState(() {
-        _error = 'Tournamente konnte nicht geladen';
+        _error = _items.isEmpty
+            ? _lastTournamentLoadError ?? 'Tournamente konnten nicht geladen werden'
+            : null;
         _loading = false;
       });
       return;
@@ -116,7 +125,9 @@ class TournamentPageState extends State<TournamentPage> {
       _items = refreshed;
       _loading = false;
       _error = null;
+      _lastTournamentLoadError = null;
     });
+    _syncTournamentStatusSubscriptions();
   }
 
   Future<void> _refreshTournaments() async {
@@ -132,7 +143,31 @@ class TournamentPageState extends State<TournamentPage> {
     setState(() {
       _items = refreshed;
       _error = null;
+      _lastTournamentLoadError = null;
     });
+    _syncTournamentStatusSubscriptions();
+  }
+
+  String _messageForTournamentLoadError(Object error) {
+    final raw = error.toString();
+    if (error is TimeoutException) {
+      return 'Laden der Tournamente dauert zu lange';
+    }
+    if (raw.contains('RATE_LIMITED_TOURNAMENTS') || raw.contains('429')) {
+      return 'Zu viele Anfragen. Bitte kurz warten';
+    }
+    if (raw.contains('Failed host lookup') ||
+        raw.contains('Connection refused') ||
+        raw.contains('Connection closed before full header was received')) {
+      return 'Backend nicht erreichbar';
+    }
+    if (raw.contains('Unexpected tournaments response shape')) {
+      return 'Tournament-Antwort hat ein unerwartetes Format';
+    }
+    if (raw.contains('Failed to load tournaments')) {
+      return 'Tournamente konnten nicht geladen werden';
+    }
+    return 'Tournamente konnten nicht geladen werden';
   }
 
   Future<void> _retryLoadTournaments() async {
@@ -145,23 +180,17 @@ class TournamentPageState extends State<TournamentPage> {
   }
 
   void _showTargetFacePicker() {
-    final items = _targetFaces
+    final items = targetFaceOptions
         .map(
-          (item) => SelectionItem<String>(
-            value: item['value'] ?? '',
-            label: item['label'] ?? '',
-          ),
+          (option) =>
+              SelectionItem<String>(value: option.value, label: option.label),
         )
         .toList(growable: false);
     showSelectionBottomSheet<String>(
       context: context,
       items: items,
       onSelected: (value) {
-        final label = _targetFaces
-            .firstWhere(
-              (item) => item['value'] == value,
-              orElse: () => const {'label': '', 'value': ''},
-            )['label']!;
+        final label = targetFaceLabelForValue(value);
         setState(() {
           _targetFace = value;
           _targetFaceController.text = label;
@@ -205,7 +234,7 @@ class TournamentPageState extends State<TournamentPage> {
 
     closeSheet();
     _resetCreateForm();
-    await _loadTournaments();
+    await _refreshTournaments();
   }
 
   void _resetCreateForm() {
@@ -234,6 +263,7 @@ class TournamentPageState extends State<TournamentPage> {
         _items = _items.where((it) => it.id != item.id).toList(growable: false);
         _swipeOffsets.remove(item.id);
       });
+      _syncTournamentStatusSubscriptions();
       AppSnackbar.show(context, 'Tournament gelöscht');
       return true;
     } catch (e) {
@@ -280,6 +310,7 @@ class TournamentPageState extends State<TournamentPage> {
             .toList(growable: false);
         _swipeOffsets.remove(item.id);
       });
+      _syncTournamentStatusSubscriptions();
       AppSnackbar.show(context, 'Tournament in History verschoben');
       return true;
     } catch (e) {
@@ -307,7 +338,9 @@ class TournamentPageState extends State<TournamentPage> {
   @override
   void initState() {
     super.initState();
+    _loadCurrentUserId();
     _loadTournaments();
+    _setupTournamentStatusEvents();
   }
 
   @override
@@ -326,13 +359,72 @@ class TournamentPageState extends State<TournamentPage> {
     });
   }
 
+  Future<void> _loadCurrentUserId() async {
+    String? userId = await TokenStorage.readUserId();
+    final token = await TokenStorage.readToken();
+    final fromToken = token == null
+        ? null
+        : TokenStorage.extractUserIdFromJwt(token);
+    if (fromToken != null && fromToken.isNotEmpty) {
+      userId = fromToken;
+      await TokenStorage.saveUserId(fromToken);
+    }
+    if (!mounted) return;
+    setState(() {
+      _currentUserId = userId;
+    });
+  }
+
+  bool _isHostForItem(TournamentListItem item) {
+    final host = item.hostUserId.trim().toLowerCase();
+    final current = (_currentUserId ?? '').trim().toLowerCase();
+    if (host.isEmpty || current.isEmpty) return false;
+    return host == current;
+  }
+
   @override
   void dispose() {
+    _statusRefreshDebounce?.cancel();
+    _statusEventsSub?.cancel();
+    TournamentStatusEventsService.instance.disconnect();
     _nameController.dispose();
     _descriptionController.dispose();
     _locationController.dispose();
     _targetFaceController.dispose();
     super.dispose();
+  }
+
+  Future<void> _setupTournamentStatusEvents() async {
+    _statusEventsSub = TournamentStatusEventsService.instance.events.listen(
+      _onTournamentStatusChanged,
+    );
+    await TournamentStatusEventsService.instance.connect();
+    _syncTournamentStatusSubscriptions();
+  }
+
+  void _syncTournamentStatusSubscriptions() {
+    TournamentStatusEventsService.instance.syncTournamentIds(
+      _items.map((item) => item.id),
+    );
+  }
+
+  void _onTournamentStatusChanged(TournamentStatusChangedEvent event) {
+    if (!mounted) return;
+    final isKnownTournament = _items.any(
+      (item) => item.id == event.tournamentId,
+    );
+    if (!isKnownTournament) return;
+
+    _statusRefreshDebounce?.cancel();
+    _statusRefreshDebounce = Timer(const Duration(milliseconds: 250), () async {
+      if (!mounted || _refreshInProgress) return;
+      _refreshInProgress = true;
+      try {
+        await _refreshTournaments();
+      } finally {
+        _refreshInProgress = false;
+      }
+    });
   }
 
   void _onCardDragUpdate(TournamentListItem item, DragUpdateDetails details) {
@@ -355,7 +447,15 @@ class TournamentPageState extends State<TournamentPage> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => TournamentDetailPage(
+          tournamentId: item.id,
           tournamentName: item.name,
+          tournamentStatus: item.status,
+          hostUserId: item.hostUserId,
+          participantCount: item.participants,
+          passesTotal: item.passesTotal,
+          arrowsPerPass: item.arrowsPerPass,
+          targetFace: item.targetFace,
+          location: item.location,
         ),
       ),
     );
@@ -442,10 +542,7 @@ class TournamentPageState extends State<TournamentPage> {
               borderRadius: BorderRadius.circular(16),
             ),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                minWidth: 280,
-                maxWidth: 340,
-              ),
+              constraints: const BoxConstraints(minWidth: 280, maxWidth: 340),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
                 child: Column(
@@ -490,12 +587,7 @@ class TournamentPageState extends State<TournamentPage> {
           ),
         );
       },
-      transitionBuilder: (
-        dialogContext,
-        animation,
-        secondaryAnimation,
-        child,
-      ) {
+      transitionBuilder: (dialogContext, animation, secondaryAnimation, child) {
         return FadeTransition(
           opacity: CurvedAnimation(
             parent: animation,
@@ -514,57 +606,56 @@ class TournamentPageState extends State<TournamentPage> {
   void _openCreateSheet(BuildContext context) {
     _resetCreateForm();
     late PersistentBottomSheetController controller;
-    controller = Scaffold.of(context).showBottomSheet(
-      (sheetContext) {
-        final media = MediaQuery.of(sheetContext);
-        final height = media.size.height -
-            kBottomNavigationBarHeight -
-            media.padding.bottom -
-            72;
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return TournamentCreateSheet(
-              height: height,
-              onClose: () => controller.close(),
-              nameController: _nameController,
-              descriptionController: _descriptionController,
-              locationController: _locationController,
-              targetFaceController: _targetFaceController,
-              hostShoots: _hostShoots,
-              onHostShootsChanged: (value) {
-                setSheetState(() {
-                  _hostShoots = value;
-                });
-              },
-              passesTotal: _passesTotal,
-              arrowsPerPass: _arrowsPerPass,
-              onPassesMinus: () {
-                setSheetState(() {
-                  if (_passesTotal > 6) _passesTotal -= 1;
-                });
-              },
-              onPassesPlus: () {
-                setSheetState(() {
-                  if (_passesTotal < 10) _passesTotal += 1;
-                });
-              },
-              onArrowsMinus: () {
-                setSheetState(() {
-                  if (_arrowsPerPass > 3) _arrowsPerPass -= 1;
-                });
-              },
-              onArrowsPlus: () {
-                setSheetState(() {
-                  if (_arrowsPerPass < 6) _arrowsPerPass += 1;
-                });
-              },
-              onPickTargetFace: _showTargetFacePicker,
-              onCreate: () => _createTournament(controller.close),
-            );
-          },
-        );
-      },
-    );
+    controller = Scaffold.of(context).showBottomSheet((sheetContext) {
+      final media = MediaQuery.of(sheetContext);
+      final height =
+          media.size.height -
+          kBottomNavigationBarHeight -
+          media.padding.bottom -
+          72;
+      return StatefulBuilder(
+        builder: (context, setSheetState) {
+          return TournamentCreateSheet(
+            height: height,
+            onClose: () => controller.close(),
+            nameController: _nameController,
+            descriptionController: _descriptionController,
+            locationController: _locationController,
+            targetFaceController: _targetFaceController,
+            hostShoots: _hostShoots,
+            onHostShootsChanged: (value) {
+              setSheetState(() {
+                _hostShoots = value;
+              });
+            },
+            passesTotal: _passesTotal,
+            arrowsPerPass: _arrowsPerPass,
+            onPassesMinus: () {
+              setSheetState(() {
+                if (_passesTotal > 6) _passesTotal -= 1;
+              });
+            },
+            onPassesPlus: () {
+              setSheetState(() {
+                if (_passesTotal < 10) _passesTotal += 1;
+              });
+            },
+            onArrowsMinus: () {
+              setSheetState(() {
+                if (_arrowsPerPass > 3) _arrowsPerPass -= 1;
+              });
+            },
+            onArrowsPlus: () {
+              setSheetState(() {
+                if (_arrowsPerPass < 6) _arrowsPerPass += 1;
+              });
+            },
+            onPickTargetFace: _showTargetFacePicker,
+            onCreate: () => _createTournament(controller.close),
+          );
+        },
+      );
+    });
   }
 
   void _openEditSheet(TournamentListItem item) {
@@ -572,68 +663,64 @@ class TournamentPageState extends State<TournamentPage> {
     _descriptionController.text = item.description;
     _locationController.text = item.location;
     _targetFace = item.targetFace;
-    _targetFaceController.text = targetFaceLabelForValue(
-      item.targetFace,
-      _targetFaces,
-    );
+    _targetFaceController.text = targetFaceLabelForValue(item.targetFace);
     _passesTotal = item.passesTotal ?? 6;
     _arrowsPerPass = item.arrowsPerPass ?? 3;
     _hostShoots = true;
 
     late PersistentBottomSheetController controller;
-    controller = Scaffold.of(context).showBottomSheet(
-      (sheetContext) {
-        final media = MediaQuery.of(sheetContext);
-        final height = media.size.height -
-            kBottomNavigationBarHeight -
-            media.padding.bottom -
-            72;
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return TournamentCreateSheet(
-              height: height,
-              onClose: () => controller.close(),
-              title: 'Tournament bearbeiten',
-              submitLabel: 'Speichern',
-              nameController: _nameController,
-              descriptionController: _descriptionController,
-              locationController: _locationController,
-              targetFaceController: _targetFaceController,
-              hostShoots: _hostShoots,
-              onHostShootsChanged: (value) {
-                setSheetState(() {
-                  _hostShoots = value;
-                });
-              },
-              passesTotal: _passesTotal,
-              arrowsPerPass: _arrowsPerPass,
-              onPassesMinus: () {
-                setSheetState(() {
-                  if (_passesTotal > 6) _passesTotal -= 1;
-                });
-              },
-              onPassesPlus: () {
-                setSheetState(() {
-                  if (_passesTotal < 10) _passesTotal += 1;
-                });
-              },
-              onArrowsMinus: () {
-                setSheetState(() {
-                  if (_arrowsPerPass > 3) _arrowsPerPass -= 1;
-                });
-              },
-              onArrowsPlus: () {
-                setSheetState(() {
-                  if (_arrowsPerPass < 6) _arrowsPerPass += 1;
-                });
-              },
-              onPickTargetFace: _showTargetFacePicker,
-              onCreate: () => _updateTournament(item, controller.close),
-            );
-          },
-        );
-      },
-    );
+    controller = Scaffold.of(context).showBottomSheet((sheetContext) {
+      final media = MediaQuery.of(sheetContext);
+      final height =
+          media.size.height -
+          kBottomNavigationBarHeight -
+          media.padding.bottom -
+          72;
+      return StatefulBuilder(
+        builder: (context, setSheetState) {
+          return TournamentCreateSheet(
+            height: height,
+            onClose: () => controller.close(),
+            title: 'Tournament bearbeiten',
+            submitLabel: 'Speichern',
+            nameController: _nameController,
+            descriptionController: _descriptionController,
+            locationController: _locationController,
+            targetFaceController: _targetFaceController,
+            hostShoots: _hostShoots,
+            onHostShootsChanged: (value) {
+              setSheetState(() {
+                _hostShoots = value;
+              });
+            },
+            passesTotal: _passesTotal,
+            arrowsPerPass: _arrowsPerPass,
+            onPassesMinus: () {
+              setSheetState(() {
+                if (_passesTotal > 6) _passesTotal -= 1;
+              });
+            },
+            onPassesPlus: () {
+              setSheetState(() {
+                if (_passesTotal < 10) _passesTotal += 1;
+              });
+            },
+            onArrowsMinus: () {
+              setSheetState(() {
+                if (_arrowsPerPass > 3) _arrowsPerPass -= 1;
+              });
+            },
+            onArrowsPlus: () {
+              setSheetState(() {
+                if (_arrowsPerPass < 6) _arrowsPerPass += 1;
+              });
+            },
+            onPickTargetFace: _showTargetFacePicker,
+            onCreate: () => _updateTournament(item, controller.close),
+          );
+        },
+      );
+    });
   }
 
   @override
@@ -671,6 +758,7 @@ class TournamentPageState extends State<TournamentPage> {
           await _deleteTournament(item);
         }
       },
+      canEditTournament: _isHostForItem,
       onMenuAction: (item, action) async {
         if (action == 'key_qr') {
           await _showKeyQrDialog(item);
@@ -681,6 +769,7 @@ class TournamentPageState extends State<TournamentPage> {
           return;
         }
         if (action == 'edit') {
+          if (!_isHostForItem(item)) return;
           _openEditSheet(item);
           return;
         }

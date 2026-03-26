@@ -25,17 +25,6 @@ List<TournamentListItem> toTournamentItems(
   return rawItems.map(TournamentListItem.fromJson).toList(growable: false);
 }
 
-String targetFaceLabelForValue(
-  String value,
-  List<Map<String, String>> targetFaces,
-) {
-  final match = targetFaces.firstWhere(
-    (item) => item['value'] == value,
-    orElse: () => const {'label': '', 'value': ''},
-  );
-  return match['label'] ?? '';
-}
-
 DateTime tournamentGroupDate(TournamentListItem item) {
   final raw = item.startTime ?? item.createdAt ?? DateTime.now();
   return DateTime(raw.year, raw.month, raw.day);
@@ -62,10 +51,8 @@ String tournamentFormatDayMonth(DateTime date) {
 
 String generateTournamentId() {
   final random = Random();
-  String hex(int length) => List.generate(
-        length,
-        (_) => random.nextInt(16).toRadixString(16),
-      ).join();
+  String hex(int length) =>
+      List.generate(length, (_) => random.nextInt(16).toRadixString(16)).join();
   return '${hex(8)}-${hex(4)}-4${hex(3)}-'
       '${(8 + random.nextInt(4)).toRadixString(16)}${hex(3)}-${hex(12)}';
 }
@@ -126,4 +113,3 @@ class TournamentDateHeaderDelegate extends SliverPersistentHeaderDelegate {
         textStyleRight != oldDelegate.textStyleRight;
   }
 }
-

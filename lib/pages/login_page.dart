@@ -30,9 +30,6 @@ class _LoginPageState extends State<LoginPage> {
   bool _emailHasError = false;
   bool _passwordHasError = false;
 
-  late final theme = Theme.of(context);
-  late final schema = theme.colorScheme;
-
   bool _isEmailValid(String email) {
     final pattern = RegExp(
       r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
@@ -80,7 +77,12 @@ class _LoginPageState extends State<LoginPage> {
         throw Exception('Backend hat keinen Token geliefert');
       }
 
+      final userId = TokenStorage.extractUserIdFromJwt(token);
+
       await TokenStorage.saveToken(token);
+      if (userId != null && userId.isNotEmpty) {
+        await TokenStorage.saveUserId(userId);
+      }
 
       if (!mounted) return;
 
@@ -102,7 +104,8 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-
+    final theme = Theme.of(context);
+    final schema = theme.colorScheme;
 
     return Scaffold(
       body: Column(
